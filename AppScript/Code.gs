@@ -1,6 +1,6 @@
-var SHEET_NAME = 'Sheet1';
-var MYSQL_API_ENDPOINT = 'https://ready-paws-hide.loca.lt/sync'; // Replace with your actual API endpoint
 
+var SHEET_NAME = 'Sheet1';
+var MYSQL_API_ENDPOINT = 'https://beige-apples-beg.loca.lt/sync'; // Replace with your actual API endpoint
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('MySQL Sync')
@@ -23,7 +23,8 @@ function saveMySQLConfig(config) {
     'mysql_port': config.port,
     'mysql_database': config.database,
     'mysql_username': config.username,
-    'mysql_password': config.password
+    'mysql_password': config.password,
+    'mysql_tableName': config.tableName // Save the table name to properties
   });
   return 'Configuration saved successfully!';
 }
@@ -35,7 +36,8 @@ function getMySQLConfig() {
     port: userProperties.getProperty('mysql_port') || '3306',
     database: userProperties.getProperty('mysql_database') || '',
     username: userProperties.getProperty('mysql_username') || '',
-    password: userProperties.getProperty('mysql_password') || ''
+    password: userProperties.getProperty('mysql_password') || '',
+    tableName: userProperties.getProperty('mysql_tableName') || '' // Return the table name
   };
 }
 
@@ -52,11 +54,18 @@ function syncNow() {
   var data = sheet.getDataRange().getValues();
   var mysqlConfig = getMySQLConfig();
   var userInfo = getUserInfo();
+
+  if (!mysqlConfig.tableName) {
+    SpreadsheetApp.getUi().alert('Please configure the MySQL table name first.');
+    return;
+  }
   
   var payload = {
     sheetData: data,
     mysqlConfig: mysqlConfig,
-    userInfo: userInfo
+    userInfo: userInfo,
+    spreadsheetId: SpreadsheetApp.getActiveSpreadsheet().getId(),
+    muteHttpExceptions: true
   };
   
   var options = {
@@ -77,3 +86,4 @@ function syncNow() {
     SpreadsheetApp.getUi().alert('Sync failed: ' + error.message);
   }
 }
+
