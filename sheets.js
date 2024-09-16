@@ -12,8 +12,16 @@ async function readSheet(spreadsheetId, sheets, range) {
 }
 
 async function writeSheet(spreadsheetId, sheets, range, values) {
-  const resource = { values };
   try {
+    // Clear the existing data in the specified range
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId,
+      range,
+    });
+    console.log("Sheet cleared.");
+
+    // Write new data to the specified range
+    const resource = { values };
     const result = await sheets.spreadsheets.values.update({
       spreadsheetId,
       range,
@@ -23,8 +31,8 @@ async function writeSheet(spreadsheetId, sheets, range, values) {
     console.log("%d cells updated.", result.data.updatedCells);
     return result;
   } catch (err) {
+    console.error("Error updating Google Sheet:", err.message);
     throw err;
   }
 }
-
 module.exports = { readSheet, writeSheet };
