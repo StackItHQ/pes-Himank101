@@ -59,4 +59,79 @@ We're available at techhiring@superjoin.ai for all queries.
 All the best ✨.
 
 ## Developer's Section
-[Link To video](https://drive.google.com/file/d/1VeQ7F43WnItwkhYR49klT0NMfsRogH76/view?usp=sharing)
+
+# Google Sheets to MySQL Sync Solution
+
+- [✅] My code's working just fine! 🥳
+- [✅] I have recorded a video showing it working and embedded it in the README ▶️
+- [✅] I have tested all the normal working cases 😎
+- [ ] I have even solved some edge cases (brownie points) 💪
+- [✅] I added my very planned-out approach to the problem at the end of this README 📜
+
+## Problem and Research
+
+During my research, I explored various tools and technologies to solve the problem of syncing Google Sheets with a MySQL database. The tools I considered were:
+
+1. **Low/No-Code Integration Tools**
+2. **Google Apps Script with JDBC**
+3. **Node.js Backend with Google Sheets API**
+
+### Chosen Approach
+
+I decided to use MySQL as the database and a Node.js backend due to my familiarity with these tools. This approach also allowed for more flexibility and customization in syncing Google Sheets with MySQL.
+
+---
+
+## Use Case
+
+This solution is designed for **small businesses** that use Google Sheets to maintain records like:
+
+- Product catalogues with inventory details.
+- Employee reports.
+  
+In these cases, **Google Sheets** serves as the **primary frontend** where users input and manage data. The data can later be integrated with:
+
+- A website for public-facing data.
+- Internal softwares for management.
+
+---
+
+## Solution Outline
+
+### Initial Steps
+
+I started by creating a basic Node.js server to:
+
+1. **Read** and **Write** data from both Google Sheets and MySQL.
+2. Implement a rudimentary sync method using the number of rows to determine what needs to be updated.
+
+---
+
+## StackIt Extension & AppScript Integration
+
+Taing inspiration from Stackit's extension that allows easy remote connection to MySQL databases, I:
+
+- Built an **App Script extension** that takes the MySQL connection details and sends them to an API endpoint.
+- Improved sync logic by using **triggers** in Google Apps Script that send requests whenever changes are observed.
+
+I used **local tunnel** to expose my Express server and changed the bind address of the MySQL server for hosting.
+
+---
+
+## Future Scope
+
+Some potential improvements and future steps for this project include:
+
+- **Migrating the backend** from Express to Google Apps Script, so users don’t need to host their own servers.
+- **Adding support for more databases**, such as PostgreSQL
+- **Setting up database CDC** to detect changes directly from the database using capture on change instead of comparing database states.
+- Using **timestamps** to implement "last-write-wins" for concurrent updates between the database and Google Sheets.
+- **Optimizing comparison logic** to update specific rows rather than the entire Google Sheet.
+
+---
+
+## Demo
+
+Check out a demo video of the project:  
+[![Demo Video](https://drive.google.com/uc?export=view&id=1VeQ7F43WnItwkhYR49klT0NMfsRogH76)](https://drive.google.com/file/d/1VeQ7F43WnItwkhYR49klT0NMfsRogH76/view?usp=sharing)
+
