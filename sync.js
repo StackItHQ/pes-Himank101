@@ -7,19 +7,17 @@ const { google } = require("googleapis");
 async function performSync(sheetData, connection, tableName) {
   // Clear the existing data in the database table
   await connection.query(`TRUNCATE TABLE ${tableName}`);
-
   // Insert new data from the Google Sheets
-  const data = sheetData.slice(1).map((row) => {
-    const obj = {};
-    sheetData[0].forEach((header, i) => {
-      obj[header] = row[i];
-    });
-    return obj;
-  });
+  const data = sheetData.slice(1).map((row) => ({
+    id: row[0],
+    name: row[1],
+    colour: row[2],
+    age: row[3],
+    job: row[4],
+  }));
   await writeToDb(connection, tableName, data);
 }
 
-// Function to handle reconnection logic
 async function ensureConnection(mysqlConfig, connection) {
   if (!connection || connection.state === "disconnected") {
     console.log("Reconnecting to MySQL...");
@@ -28,7 +26,47 @@ async function ensureConnection(mysqlConfig, connection) {
   return connection;
 }
 
-// Function to poll for changes and sync both ways
+async function updateSheet(sheets, spreadsheetId, dbData) {
+  const headers = ["id", "name", "colour", "age", "job"];
+  const dbSheetValues = [
+    headers,
+    ...dbData.map((row) => headers.map((header) => row[header])),
+  ];
+  const newRange = `A1:${String.fromCharCode(65 + headers.length - 1)}${dbSheetValues.length}`;
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: newRange,
+    valueInputOption: "RAW",
+    resource: { values: dbSheetValues },
+  });
+
+  console.log(
+    `Updated Google Sheet with ${dbSheetValues.length - 1} rows from database`,
+  );
+}
+
+async function setupTriggerListener(mysqlConfig, callback) {
+  const connection = await createConnection(mysqlConfig);
+  let lastProcessedId = 0;
+
+  setInterval(async () => {
+    try {
+      const [rows] = await connection.execute(
+        "SELECT * FROM changelog WHERE id > ? ORDER BY id ASC LIMIT 100",
+        [lastProcessedId],
+      );
+
+      if (rows.length > 0) {
+        lastProcessedId = rows[rows.length - 1].id;
+        await callback("database");
+      }
+    } catch (error) {
+      console.error("Error checking changelog", error);
+    }
+  }, 1000); // Check every second
+}
+
 async function setupPolling(mysqlConfig, userInfo, spreadsheetId) {
   let connection;
   console.log(mysqlConfig);
@@ -36,69 +74,35 @@ async function setupPolling(mysqlConfig, userInfo, spreadsheetId) {
     connection = await createConnection(mysqlConfig);
     const auth = await authorize();
     const sheets = google.sheets({ version: "v4", auth });
-    // const spreadsheetId = spreadsheetId;
-    const range = "A1:Z1000";
-    const tableName = mysqlConfig.tableName;
+    const range = "A1:E1000"; // Updated to match users table columns
+    const tableName = "users"; // Assuming the table name is 'users'
 
+    let lastSheetContent = "";
+
+    // Set up interval to check for Google Sheets changes
     setInterval(async () => {
       try {
-        connection = await ensureConnection(mysqlConfig, connection);
-        const dbData = await readFromDb(connection, tableName);
         const sheetData = await readSheet(spreadsheetId, sheets, range);
+        const currentSheetContent = JSON.stringify(sheetData);
 
-        const headers = Object.keys(dbData[0]);
-        const dbSheetValues = [
-          headers,
-          ...dbData.map((row) => headers.map((header) => row[header])),
-        ];
-
-        const sheetDbData = sheetData.slice(1).map((row) => {
-          const obj = {};
-          sheetData[0].forEach((header, i) => {
-            obj[header] = row[i];
-          });
-          return obj;
-        });
-
-        // Compare row counts and data
-        if (
-          dbData.length !== sheetDbData.length ||
-          JSON.stringify(dbData) !== JSON.stringify(sheetDbData)
-        ) {
-          if (
-            dbData.length > sheetDbData.length ||
-            (dbData.length === sheetDbData.length &&
-              JSON.stringify(dbData) !== JSON.stringify(sheetDbData))
-          ) {
-            // Database has more rows or same number of rows but different data, update Sheet
-            const newRange = `A1:${String.fromCharCode(65 + headers.length - 1)}${dbSheetValues.length}`;
-            sheets.spreadsheets.values.update({
-              spreadsheetId,
-              range: newRange,
-              valueInputOption: "RAW",
-              resource: { values: dbSheetValues },
-            });
-            console.log(
-              `Updated Google Sheet with ${dbSheetValues.length - 1} rows from database`,
-            );
-          } else {
-            // Sheet has more rows or different data, update Database
-            await performSync(sheetData, connection, tableName);
-            console.log(
-              `Updated database with ${sheetData.length - 1} rows from Google Sheet`,
-            );
-          }
-        } else {
-          console.log(
-            "No changes detected. Both database and Google Sheet are in sync.",
-          );
+        if (currentSheetContent !== lastSheetContent) {
+          console.log("Change detected in Google Sheet");
+          lastSheetContent = currentSheetContent;
+          await setupTriggerListener(mysqlConfig, () => { })("sheet");
         }
       } catch (error) {
-        console.error("Error during sync", error);
+        console.error("Error checking Google Sheet content:", error.message);
+        if (error.errors && error.errors.length > 0) {
+          console.error("Detailed error:", error.errors[0].message);
+        }
       }
-    }, 5000); // 60 seconds interval
+    }, 5000); // Check every 5 seconds
   } catch (error) {
-    console.error("Error setting up polling", error);
+    console.error("Error setting up polling:", error.message);
+    if (error.errors && error.errors.length > 0) {
+      console.error("Detailed error:", error.errors[0].message);
+    }
   }
 }
+
 module.exports = { performSync, setupPolling };
